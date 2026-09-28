@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus SpaceFinder 3D - Smart Room & Study Space Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        },
+                        darkbg: '#0b0f17',
+                        cardbg: '#111827',
+                        glass: 'rgba(17, 24, 39, 0.75)',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px rgba(34, 197, 94, 0.4)' },
+                            '100%': { boxShadow: '0 0 20px rgba(34, 197, 94, 0.8)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Three.js for 3D Visualizer -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0b0f17;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-card {
+            background: rgba(31, 41, 55, 0.5);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-card:hover {
+            border-color: rgba(34, 197, 94, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f17;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+        .room-tooltip {
+            position: absolute;
+            pointer-events: none;
+            z-index: 50;
+            transition: opacity 0.15s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#0b0f17] text-gray-100">
+
+    <!-- TOP NAVIGATION & CONTROLS -->
+    <header class="sticky top-0 z-40 glass-panel border-b border-gray-800 px-4 lg:px-8 py-3">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <!-- Brand Logo & Title -->
+            <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+                <div class="flex items-center gap-2.5">
+                    <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-900/40">
+                        <i data-lucide="compass" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-gray-200 to-emerald-400 bg-clip-text text-transparent">
+                            SpaceFinder <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">3D LIVE</span>
+                        </h1>
+                        <p class="text-xs text-gray-400 font-medium">Campus Free Classroom & Study Tracker</p>
+                    </div>
+                </div>
+
+                <!-- Mobile Clock Trigger Toggle -->
+                <button id="mobileClockToggleBtn" class="md:hidden p-2 rounded-lg bg-gray-800/80 border border-gray-700 text-emerald-400">
+                    <i data-lucide="clock" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Real-Time Metrics Overview -->
+            <div class="hidden lg:flex items-center gap-3 bg-gray-900/60 p-1.5 px-3 rounded-xl border border-gray-800/80 text-xs font-semibold">
+                <div class="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span id="metricFreeCount">0 Free Rooms</span>
+                </div>
+                <div class="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                    <span id="metricOccupiedCount">0 Occupied</span>
+                </div>
+                <div class="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span id="metricEndingSoonCount">0 Ending Soon</span>
+                </div>
+            </div>
+
+            <!-- Time Controller & Simulator -->
+            <div id="clockControlPanel" class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+                <div class="flex items-center gap-2 bg-gray-900/90 border border-gray-700/80 rounded-xl px-3 py-1.5 shadow-inner w-full sm:w-auto">
+                    <i data-lucide="calendar" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+                    <select id="daySelect" class="bg-transparent text-sm font-medium focus:outline-none cursor-pointer text-gray-200">
+                        <option value="Monday" class="bg-gray-900">Monday</option>
+                        <option value="Tuesday" class="bg-gray-900">Tuesday</option>
+                        <option value="Wednesday" class="bg-gray-900">Wednesday</option>
+                        <option value="Thursday" class="bg-gray-900">Thursday</option>
+                        <option value="Friday" class="bg-gray-900">Friday</option>
+                    </select>
+                    
+                    <span class="text-gray-600">|</span>
+                    
+                    <i data-lucide="clock" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+                    <input type="time" id="timePicker" value="11:30" class="bg-transparent text-sm font-semibold text-emerald-300 focus:outline-none cursor-pointer">
+
+                    <button id="resetLiveTimeBtn" title="Reset to Current Real Time" class="ml-1 p-1 hover:bg-gray-800 rounded text-gray-400 hover:text-emerald-400 transition-colors">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-1 bg-gray-900/90 border border-gray-700/80 rounded-xl p-1">
+                    <button id="liveSimToggleBtn" class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 text-white transition-all shadow">
+                        <i data-lucide="play" class="w-3 h-3 fill-white"></i>
+                        <span id="simStatusText">Live Sim</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 space-y-6">
+
+        <!-- AI ROOM FINDER & NATURAL LANGUAGE SEARCH BAR -->
+        <section class="glass-panel rounded-2xl p-4 lg:p-6 shadow-2xl relative overflow-hidden border border-emerald-500/20">
+            <!-- Background Glow Decor -->
+            <div class="absolute -top-24 -right-24 w-60 h-60 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -left-24 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="relative z-10 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="p-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow">
+                            <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        </span>
+                        <h2 class="text-base font-bold text-gray-100 tracking-wide uppercase">AI Smart Space Assistant</h2>
+                    </div>
+                    <span class="text-xs text-gray-400">Type natural queries or use quick prompt chips below</span>
+                </div>
+
+                <!-- Input Box -->
+                <div class="relative flex items-center">
+                    <input type="text" id="aiQueryInput" 
+                           placeholder='Try asking: "I need an AC room on the ground floor for 6 people for the next 2 hours"' 
+                           class="w-full bg-gray-900/90 border border-gray-700/80 rounded-xl py-3.5 pl-11 pr-28 text-sm md:text-base text-gray-100 placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all shadow-inner">
+                    <i data-lucide="bot" class="w-5 h-5 absolute left-3.5 text-emerald-400"></i>
+                    
+                    <button id="aiSearchBtn" class="absolute right-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs md:text-sm font-semibold rounded-lg shadow-md transition-all flex items-center gap-1.5 active:scale-95">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                        <span>Search</span>
+                    </button>
+                </div>
+
+                <!-- Quick Prompt Chips -->
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <span class="text-gray-400 font-medium flex items-center gap-1">
+                        <i data-lucide="zap" class="w-3 h-3 text-amber-400"></i> Quick:
+                    </span>
+                    <button class="prompt-chip bg-gray-800/80 hover:bg-emerald-950/60 hover:text-emerald-300 text-gray-300 px-2.5 py-1 rounded-full border border-gray-700 transition-all" data-query="AC room on Ground floor for team of 5 for next 2 hours">
+                        ⚡ GF AC Room for 5 people (2 hrs)
+                    </button>
+                    <button class="prompt-chip bg-gray-800/80 hover:bg-emerald-950/60 hover:text-emerald-300 text-gray-300 px-2.5 py-1 rounded-full border border-gray-700 transition-all" data-query="Quiet room on 2nd floor with projector for 3 people">
+                        💻 2nd Floor + Projector
+                    </button>
+                    <button class="prompt-chip bg-gray-800/80 hover:bg-emerald-950/60 hover:text-emerald-300 text-gray-300 px-2.5 py-1 rounded-full border border-gray-700 transition-all" data-query="Large capacity room on Floor 1 free for 3 hours">
+                        👥 Floor 1 Large Capacity (3 hrs free)
+                    </button>
+                </div>
+
+                <!-- AI Output Breakdown Banner -->
+                <div id="aiReasoningBox" class="hidden bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-3 text-xs text-emerald-200 space-y-1 animate-fadeIn">
+                    <div class="flex items-center gap-2 font-semibold text-emerald-400">
+                        <i data-lucide="cpu" class="w-4 h-4"></i>
+                        <span>AI Intent Parsing Breakdown:</span>
+                    </div>
+                    <p id="aiReasoningText" class="text-gray-300 leading-relaxed font-mono text-[11px]"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- NAVIGATION TABS & FILTER BAR -->
+        <section class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            <!-- View Tabs -->
+            <div class="flex items-center bg-gray-900/90 border border-gray-800 p-1 rounded-xl w-full md:w-auto">
+                <button id="tabGridBtn" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold bg-emerald-600 text-white shadow transition-all">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span>Floor Grid View</span>
+                </button>
+                <button id="tab3dBtn" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold text-gray-400 hover:text-white transition-all">
+                    <i data-lucide="box" class="w-4 h-4"></i>
+                    <span>Interactive 3D Map</span>
+                </button>
+                <button id="tabScheduleBtn" class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold text-gray-400 hover:text-white transition-all">
+                    <i data-lucide="table" class="w-4 h-4"></i>
+                    <span>10 Class Timetables</span>
+                </button>
+            </div>
+
+            <!-- TRADITIONAL FILTERS (VISIBLE IN GRID VIEW) -->
+            <div id="traditionalFilters" class="flex flex-wrap items-center gap-2.5 text-xs">
+                <!-- Floor Filter -->
+                <select id="filterFloor" class="bg-gray-900 border border-gray-700 text-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-emerald-500">
+                    <option value="ALL">All Floors</option>
+                    <option value="Ground Floor">Ground Floor</option>
+                    <option value="Floor 1">Floor 1</option>
+                    <option value="Floor 2">Floor 2</option>
+                    <option value="Floor 3">Floor 3</option>
+                </select>
+
+                <!-- Status Filter -->
+                <select id="filterStatus" class="bg-gray-900 border border-gray-700 text-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-emerald-500">
+                    <option value="ALL">All Availability</option>
+                    <option value="FREE">FREE Only</option>
+                    <option value="OCCUPIED">OCCUPIED Only</option>
+                </select>
+
+                <!-- Feature Filter -->
+                <select id="filterFeature" class="bg-gray-900 border border-gray-700 text-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-emerald-500">
+                    <option value="ALL">Any Features</option>
+                    <option value="AC">AC Rooms</option>
+                    <option value="Projector">With Projector</option>
+                    <option value="Whiteboard">With Whiteboard</option>
+                </select>
+
+                <!-- Minimum Free Duration -->
+                <select id="filterDuration" class="bg-gray-900 border border-gray-700 text-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-emerald-500">
+                    <option value="0">Min Free Time (Any)</option>
+                    <option value="60">Free >= 1 Hr</option>
+                    <option value="120">Free >= 2 Hrs</option>
+                    <option value="180">Free >= 3 Hrs</option>
+                </select>
+
+                <!-- Clear Filters Button -->
+                <button id="clearFiltersBtn" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors flex items-center gap-1">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i> Clear
+                </button>
+            </div>
+        </section>
+
+        <!-- VIEW 1: FLOOR GRID VIEW -->
+        <section id="viewFloorGrid" class="space-y-8">
+            <!-- Floor Sections Render Dynamic Containers -->
+            <div id="floorsContainer" class="space-y-8"></div>
+        </section>
+
+        <!-- VIEW 2: INTERACTIVE 3D MAP VIEW -->
+        <section id="view3dMap" class="hidden space-y-4">
+            <div class="glass-panel rounded-2xl p-4 lg:p-6 relative overflow-hidden flex flex-col gap-4">
+                
+                <!-- 3D Map Header Controls -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-100 flex items-center gap-2">
+                            <i data-lucide="box" class="w-5 h-5 text-emerald-400"></i>
+                            Interactive 3D Campus Building Visualizer
+                        </h3>
+                        <p class="text-xs text-gray-400">Rotate (Left Click + Drag), Zoom (Scroll), Pan (Right Click + Drag). Click any room to view countdown & squad share.</p>
+                    </div>
+
+                    <!-- Floor Switcher Buttons for 3D -->
+                    <div class="flex items-center gap-1.5 bg-gray-900/90 border border-gray-800 p-1 rounded-xl">
+                        <button class="floor-3d-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white transition-all" data-floor="ALL">
+                            All Floors
+                        </button>
+                        <button class="floor-3d-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition-all" data-floor="3">
+                            3rd Floor
+                        </button>
+                        <button class="floor-3d-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition-all" data-floor="2">
+                            2nd Floor
+                        </button>
+                        <button class="floor-3d-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition-all" data-floor="1">
+                            1st Floor
+                        </button>
+                        <button class="floor-3d-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition-all" data-floor="0">
+                            Ground Floor
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3D Canvas Canvas Container -->
+                <div class="relative w-full h-[500px] lg:h-[600px] bg-gradient-to-b from-gray-950 via-gray-900 to-black rounded-xl overflow-hidden border border-gray-800">
+                    <div id="threeJsCanvasContainer" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+                    <!-- Legend Overlay -->
+                    <div class="absolute bottom-4 left-4 glass-panel p-3 rounded-xl text-xs space-y-2 border border-gray-800 shadow-xl pointer-events-none">
+                        <div class="font-bold text-gray-300">Room Availability Legend</div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-sm bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
+                            <span class="text-gray-300">Free Room</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-sm bg-amber-500 shadow-sm shadow-amber-500/50"></span>
+                            <span class="text-gray-300">Ending Soon (&lt; 15m)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-sm bg-rose-600 shadow-sm shadow-rose-600/50"></span>
+                            <span class="text-gray-300">Occupied by Class</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-sm bg-indigo-500 shadow-sm shadow-indigo-500/50"></span>
+                            <span class="text-gray-300">Claimed by Squad</span>
+                        </div>
+                    </div>
+
+                    <!-- Controls Instruction Floating Badge -->
+                    <div class="absolute top-4 right-4 glass-panel px-3 py-1.5 rounded-lg text-[11px] text-gray-400 flex items-center gap-1.5 border border-gray-800">
+                        <i data-lucide="mouse-pointer" class="w-3.5 h-3.5 text-emerald-400"></i>
+                        <span>Click room box to inspect</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- VIEW 3: 10 CLASS TIMETABLES MATRIX -->
+        <section id="viewSchedule" class="hidden space-y-4">
+            <div class="glass-panel rounded-2xl p-4 lg:p-6 space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-100 flex items-center gap-2">
+                            <i data-lucide="calendar-days" class="w-5 h-5 text-emerald-400"></i>
+                            Class Timetables Master Schedule (10 Sections)
+                        </h3>
+                        <p class="text-xs text-gray-400">View complete hourly class allocations from 8:00 AM to 5:00 PM</p>
+                    </div>
+
+                    <!-- Filter Schedule by Section -->
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-gray-400">Filter Section:</label>
+                        <select id="scheduleSectionFilter" class="bg-gray-900 border border-gray-700 text-xs text-gray-200 rounded-lg px-3 py-1.5 focus:outline-none">
+                            <option value="ALL">All 10 Sections</option>
+                            <option value="Section A">Section A</option>
+                            <option value="Section B">Section B</option>
+                            <option value="Section C">Section C</option>
+                            <option value="Section D">Section D</option>
+                            <option value="Section E">Section E</option>
+                            <option value="Section F">Section F</option>
+                            <option value="Section G">Section G</option>
+                            <option value="Section H">Section H</option>
+                            <option value="Section I">Section I</option>
+                            <option value="Section J">Section J</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Schedule Table Container -->
+                <div class="overflow-x-auto rounded-xl border border-gray-800">
+                    <table class="w-full text-left text-xs text-gray-300">
+                        <thead class="bg-gray-900/90 text-gray-400 uppercase text-[10px] tracking-wider border-b border-gray-800">
+                            <tr>
+                                <th class="py-3 px-4">Section / Room</th>
+                                <th class="py-3 px-2 text-center">08:00-09:00</th>
+                                <th class="py-3 px-2 text-center">09:00-10:00</th>
+                                <th class="py-3 px-2 text-center">10:00-11:00</th>
+                                <th class="py-3 px-2 text-center">11:00-12:00</th>
+                                <th class="py-3 px-2 text-center bg-gray-800/40">12:00-01:00</th>
+                                <th class="py-3 px-2 text-center">01:00-02:00</th>
+                                <th class="py-3 px-2 text-center">02:00-03:00</th>
+                                <th class="py-3 px-2 text-center">03:00-04:00</th>
+                                <th class="py-3 px-2 text-center">04:00-05:00</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleTableBody" class="divide-y divide-gray-800/60 font-medium">
+                            <!-- Populated Dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ROOM DETAILS MODAL WITH COUNTDOWN TIMER & WHATSAPP SQUAD SHARE -->
+    <div id="roomModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden transition-opacity duration-300 opacity-0">
+        <div class="glass-panel w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-gray-700 transform scale-95 transition-transform duration-300" id="roomModalCard">
+            
+            <!-- Modal Header -->
+            <div class="p-5 border-b border-gray-800 flex items-start justify-between bg-gradient-to-r from-gray-900 to-gray-800">
+                <div class="flex items-center gap-3">
+                    <div id="modalStatusBadge" class="p-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        <i data-lucide="door-open" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 id="modalRoomTitle" class="text-xl font-black text-white tracking-wide">GF-101</h3>
+                            <span id="modalFloorBadge" class="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700">Ground Floor</span>
+                        </div>
+                        <p id="modalSubtitle" class="text-xs text-gray-400">Assigned: Section A</p>
+                    </div>
+                </div>
+                <button id="closeModalBtn" class="p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-5 space-y-5">
+                
+                <!-- Countdown Display Card -->
+                <div class="p-4 rounded-xl bg-gray-900/90 border border-gray-800 text-center space-y-1 relative overflow-hidden">
+                    <div id="modalCountdownGlow" class="absolute inset-0 bg-emerald-500/5 pointer-events-none"></div>
+                    <span id="modalCountdownLabel" class="text-xs text-gray-400 uppercase tracking-widest font-semibold">Time Remaining Until Next Class</span>
+                    
+                    <div class="flex items-center justify-center gap-2 text-3xl font-black font-mono tracking-tight text-emerald-400 my-1">
+                        <i data-lucide="timer" class="w-7 h-7 text-emerald-400 animate-pulse"></i>
+                        <span id="modalCountdownTimer">01h 45m 22s</span>
+                    </div>
+
+                    <p id="modalNextClassInfo" class="text-xs text-gray-400">Next Lecture: <strong class="text-gray-200">Data Structures & Algo</strong> starts at <span class="text-emerald-300 font-semibold">01:00 PM</span></p>
+                </div>
+
+                <!-- Room Specifications Grid -->
+                <div class="grid grid-cols-3 gap-2.5 text-center">
+                    <div class="bg-gray-900/60 p-2.5 rounded-xl border border-gray-800">
+                        <div class="text-[10px] text-gray-400 uppercase">Capacity</div>
+                        <div id="modalCapacity" class="text-sm font-bold text-gray-100 flex items-center justify-center gap-1 mt-0.5">
+                            <i data-lucide="users" class="w-3.5 h-3.5 text-emerald-400"></i> 40 Seats
+                        </div>
+                    </div>
+                    <div class="bg-gray-900/60 p-2.5 rounded-xl border border-gray-800">
+                        <div class="text-[10px] text-gray-400 uppercase">Climate</div>
+                        <div id="modalAC" class="text-sm font-bold text-gray-100 flex items-center justify-center gap-1 mt-0.5">
+                            <i data-lucide="snowflake" class="w-3.5 h-3.5 text-cyan-400"></i> Air Con
+                        </div>
+                    </div>
+                    <div class="bg-gray-900/60 p-2.5 rounded-xl border border-gray-800">
+                        <div class="text-[10px] text-gray-400 uppercase">Equipment</div>
+                        <div id="modalFeatures" class="text-sm font-bold text-gray-100 flex items-center justify-center gap-1 mt-0.5">
+                            <i data-lucide="tv" class="w-3.5 h-3.5 text-purple-400"></i> Projector
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Occupancy Claim Status -->
+                <div id="claimStatusBox" class="p-3 rounded-xl bg-gray-900/60 border border-gray-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div id="claimDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                        <span id="claimText" class="text-xs font-semibold text-gray-300">Room Status: Unclaimed</span>
+                    </div>
+                    <button id="toggleClaimBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow">
+                        Claim for Squad
+                    </button>
+                </div>
+
+                <!-- PHASE 2: CALL THE SQUAD / WHATSAPP SHARE INTEGRATION -->
+                <div class="space-y-2 pt-2 border-t border-gray-800">
+                    <label class="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                        <i data-lucide="users-round" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Call The Squad / Invite Study Group</span>
+                    </label>
+
+                    <div class="flex items-center gap-2">
+                        <button id="whatsappShareBtn" class="flex-1 py-2.5 px-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95">
+                            <i data-lucide="message-square-share" class="w-4 h-4"></i>
+                            <span>Send WhatsApp Invite</span>
+                        </button>
+                        
+                        <button id="copyInviteLinkBtn" class="py-2.5 px-3 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-xs font-semibold rounded-xl border border-gray-700 transition-all flex items-center gap-1" title="Copy Invite Text">
+                            <i data-lucide="copy" class="w-4 h-4"></i>
+                            <span id="copyBtnText">Copy</span>
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-gray-500 italic text-center">Generates pre-filled WhatsApp message with live location & timer details</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- FLOATING TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 glass-panel border border-emerald-500/40 text-emerald-300 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none">
+        <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+        <span id="toastMessage" class="text-xs font-semibold">Message copied to clipboard!</span>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC & APPLICATION STATE -->
+    <script>
+        
+        // --- 1. DATASET OF 10 CLASS TIMETABLES ACROSS MULTIPLE FLOORS ---
+        const ROOM_DATASET = [
+            {
+                id: 'GF-101',
+                name: 'Ground Room 101',
+                floor: 'Ground Floor',
+                floorIndex: 0,
+                capacity: 45,
+                hasAC: true,
+                features: ['Projector', 'Whiteboard', 'Power Sockets'],
+                section: 'Section A',
+                // Schedule: key = time block start hour (8 to 16)
+                schedule: {
+                    Monday:    { 8: 'CS101 Intro to CS', 9: 'CS101 Intro to CS', 10: null, 11: null, 12: 'LUNCH', 13: 'CS201 Data Struct', 14: 'CS201 Data Struct', 15: null, 16: null },
+                    Tuesday:   { 8: null, 9: 'MATH201 Calculus', 10: 'MATH201 Calculus', 11: null, 12: 'LUNCH', 13: null, 14: null, 15: 'ENG101 Communication', 16: null },
+                    Wednesday: { 8: 'CS101 Intro to CS', 9: null, 10: null, 11: 'PHY101 Physics Lab', 12: 'LUNCH', 13: 'PHY101 Physics Lab', 14: null, 15: null, 16: null },
+                    Thursday:  { 8: null, 9: 'CS201 Data Struct', 10: 'CS201 Data Struct', 11: null, 12: 'LUNCH', 13: null, 14: 'MATH201 Calculus', 15: null, 16: null },
+                    Friday:    { 8: 'ENG101 Communication', 9: null, 10: null, 11: null, 12: 'LUNCH', 13: 'CS101 Intro to CS', 14: 'CS101 Intro to CS', 15: null, 16: null }
+                }
+            },
+            {
+                id: 'GF-102',
+                name: 'Ground Room 102',
+                floor: 'Ground Floor',
+                floorIndex: 0,
+                capacity: 35,
+                hasAC: false,
+                features: ['Whiteboard', 'Smart Screen'],
+                section: 'Section B',
+                schedule: {
+                    Monday:    { 8: null, 9: 'EE101 Circuits', 10: 'EE101 Circuits', 11: null, 12: 'LUNCH', 13: null, 14: null, 15: 'CS102 Python', 16: 'CS102 Python' },
+                    Tuesday:   { 8: 'CS102 Python', 9: 'CS102 Python', 10: null, 11: 'MATH101 Discrete', 12: 'LUNCH', 13: 'MATH101 Discrete', 14: null, 15: null, 16: null },
+                    Wednesday: { 8: null, 9: null, 10: 'EE101 Circuits', 11: 'EE101 Circuits', 12: 'LUNCH', 13: null, 14: 'ENG102 Tech Writing', 15: null, 16: null },
+                    Thursday:  { 8: 'MATH101 Discrete', 9: null, 10: null, 11: null, 12: 'LUNCH', 13: 'CS102 Python', 14: 'CS102 Python', 15: null, 16: null },
+                    Friday:    { 8: null, 9: 'EE101 Circuits', 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: 'ENG102 Tech Writing', 16: null }
+                }
+            },
+            {
+                id: '1F-201',
+                name: '1st Floor Lab 201',
+                floor: 'Floor 1',
+                floorIndex: 1,
+                capacity: 60,
+                hasAC: true,
+                features: ['Projector', 'Power Sockets', 'High-Speed Wi-Fi'],
+                section: 'Section C',
+                schedule: {
+                    Monday:    { 8: 'ME201 Thermodynamics', 9: 'ME201 Thermodynamics', 10: null, 11: 'CS301 Algo', 12: 'LUNCH', 13: 'CS301 Algo', 14: null, 15: null, 16: null },
+                    Tuesday:   { 8: null, 9: null, 10: 'CS301 Algo', 11: 'CS301 Algo', 12: 'LUNCH', 13: null, 14: 'ME201 Lab', 15: 'ME201 Lab', 16: null },
+                    Wednesday: { 8: 'MATH301 Statistics', 9: 'MATH301 Statistics', 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: 'CS301 Algo', 16: null },
+                    Thursday:  { 8: null, 9: 'ME201 Thermodynamics', 10: null, 11: null, 12: 'LUNCH', 13: 'MATH301 Statistics', 14: 'MATH301 Statistics', 15: null, 16: null },
+                    Friday:    { 8: 'CS301 Algo', 9: 'CS301 Algo', 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null }
+                }
+            },
+            {
+                id: '1F-202',
+                name: '1st Floor Seminar 202',
+                floor: 'Floor 1',
+                floorIndex: 1,
+                capacity: 50,
+                hasAC: true,
+                features: ['Projector', 'Whiteboard', 'Sound System'],
+                section: 'Section D',
+                schedule: {
+                    Monday:    { 8: null, 9: null, 10: 'BIO101 Biology', 11: 'BIO101 Biology', 12: 'LUNCH', 13: null, 14: 'CHEM101 Chemistry', 15: 'CHEM101 Chemistry', 16: null },
+                    Tuesday:   { 8: 'CHEM101 Chemistry', 9: null, 10: null, 11: null, 12: 'LUNCH', 13: 'BIO101 Biology', 14: 'BIO101 Biology', 15: null, 16: null },
+                    Wednesday: { 8: null, 9: 'CS103 Web Dev', 10: 'CS103 Web Dev', 11: null, 12: 'LUNCH', 13: null, 14: null, 15: 'BIO101 Biology', 16: null },
+                    Thursday:  { 8: 'CS103 Web Dev', 9: 'CS103 Web Dev', 10: null, 11: 'CHEM101 Chemistry', 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Friday:    { 8: null, 9: null, 10: null, 11: 'CS103 Web Dev', 12: 'LUNCH', 13: 'CHEM101 Chemistry', 14: null, 15: null, 16: null }
+                }
+            },
+            {
+                id: '2F-301',
+                name: '2nd Floor Hall 301',
+                floor: 'Floor 2',
+                floorIndex: 2,
+                capacity: 80,
+                hasAC: true,
+                features: ['Projector', 'Whiteboard', 'Podium', 'Power Sockets'],
+                section: 'Section E',
+                schedule: {
+                    Monday:    { 8: 'EC101 Electronics', 9: 'EC101 Electronics', 10: 'EC101 Electronics', 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Tuesday:   { 8: null, 9: null, 10: null, 11: 'CS401 AI & ML', 12: 'LUNCH', 13: 'CS401 AI & ML', 14: 'CS401 AI & ML', 15: null, 16: null },
+                    Wednesday: { 8: null, 9: 'EC101 Electronics', 10: null, 11: null, 12: 'LUNCH', 13: 'CS401 AI & ML', 14: null, 15: null, 16: null },
+                    Thursday:  { 8: 'CS401 AI & ML', 9: 'CS401 AI & ML', 10: null, 11: 'EC101 Electronics', 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Friday:    { 8: null, 9: null, 10: 'EC101 Electronics', 11: 'EC101 Electronics', 12: 'LUNCH', 13: null, 14: null, 15: 'CS401 AI & ML', 16: null }
+                }
+            },
+            {
+                id: '2F-302',
+                name: 'IST 509 (Studio 302)',
+                floor: 'Floor 2',
+                floorIndex: 2,
+                capacity: 30,
+                hasAC: true,
+                features: ['Projector', 'Whiteboard', 'Ergonomic Chairs'],
+                section: 'Section F',
+                schedule: {
+                    Monday:    { 8: null, 9: null, 10: null, 11: null, 12: 'LUNCH', 13: 'SE501 Software Eng', 14: 'SE501 Software Eng', 15: null, 16: null },
+                    Tuesday:   { 8: 'SE501 Software Eng', 9: 'SE501 Software Eng', 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Wednesday: { 8: null, 9: null, 10: 'SE501 Software Eng', 11: 'SE501 Software Eng', 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Thursday:  { 8: null, 9: null, 10: null, 11: null, 12: 'LUNCH', 13: 'SE501 Software Eng', 14: 'SE501 Software Eng', 15: null, 16: null },
+                    Friday:    { 8: 'SE501 Software Eng', 9: 'SE501 Software Eng', 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null }
+                }
+            },
+            {
+                id: '2F-303',
+                name: '2nd Floor Room 303',
+                floor: 'Floor 2',
+                floorIndex: 2,
+                capacity: 40,
+                hasAC: false,
+                features: ['Whiteboard', 'Power Sockets'],
+                section: 'Section G',
+                schedule: {
+                    Monday:    { 8: 'CIV101 Statics', 9: 'CIV101 Statics', 10: null, 11: null, 12: 'LUNCH', 13: null, 14: 'ENV101 Ecology', 15: 'ENV101 Ecology', 16: null },
+                    Tuesday:   { 8: null, 9: null, 10: 'ENV101 Ecology', 11: 'ENV101 Ecology', 12: 'LUNCH', 13: 'CIV101 Statics', 14: null, 15: null, 16: null },
+                    Wednesday: { 8: 'CIV101 Statics', 9: null, 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Thursday:  { 8: null, 9: 'CIV101 Statics', 10: 'CIV101 Statics', 11: null, 12: 'LUNCH', 13: 'ENV101 Ecology', 14: null, 15: null, 16: null },
+                    Friday:    { 8: 'ENV101 Ecology', 9: 'ENV101 Ecology', 10: null, 11: 'CIV101 Statics', 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null }
+                }
+            },
+            {
+                id: '3F-401',
+                name: '3rd Floor Quiet Studio 401',
+                floor: 'Floor 3',
+                floorIndex: 3,
+                capacity: 25,
+                hasAC: true,
+                features: ['Projector', 'Silent Zone', 'Whiteboard'],
+                section: 'Section H',
+                schedule: {
+                    Monday:    { 8: null, 9: null, 10: null, 11: 'LAW101 Ethics', 12: 'LUNCH', 13: 'LAW101 Ethics', 14: null, 15: null, 16: null },
+                    Tuesday:   { 8: 'LAW101 Ethics', 9: 'LAW101 Ethics', 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Wednesday: { 8: null, 9: null, 10: null, 11: null, 12: 'LUNCH', 13: null, 14: 'LAW101 Ethics', 15: 'LAW101 Ethics', 16: null },
+                    Thursday:  { 8: 'LAW101 Ethics', 9: null, 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Friday:    { 8: null, 9: null, 10: 'LAW101 Ethics', 11: 'LAW101 Ethics', 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null }
+                }
+            },
+            {
+                id: '3F-402',
+                name: '3rd Floor Innovation Lab 402',
+                floor: 'Floor 3',
+                floorIndex: 3,
+                capacity: 50,
+                hasAC: true,
+                features: ['Projector', 'Whiteboard', 'High-Speed Wi-Fi', 'Power Sockets'],
+                section: 'Section I',
+                schedule: {
+                    Monday:    { 8: 'DES101 UI/UX', 9: 'DES101 UI/UX', 10: 'DES101 UI/UX', 11: null, 12: 'LUNCH', 13: null, 14: null, 15: 'CS501 Cloud', 16: 'CS501 Cloud' },
+                    Tuesday:   { 8: null, 9: 'CS501 Cloud', 10: 'CS501 Cloud', 11: null, 12: 'LUNCH', 13: 'DES101 UI/UX', 14: 'DES101 UI/UX', 15: null, 16: null },
+                    Wednesday: { 8: 'CS501 Cloud', 9: null, 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Thursday:  { 8: null, 9: null, 10: 'CS501 Cloud', 11: 'CS501 Cloud', 12: 'LUNCH', 13: 'DES101 UI/UX', 14: null, 15: null, 16: null },
+                    Friday:    { 8: 'DES101 UI/UX', 9: 'DES101 UI/UX', 10: null, 11: null, 12: 'LUNCH', 13: 'CS501 Cloud', 14: 'CS501 Cloud', 15: null, 16: null }
+                }
+            },
+            {
+                id: '3F-403',
+                name: '3rd Floor Room 403',
+                floor: 'Floor 3',
+                floorIndex: 3,
+                capacity: 35,
+                hasAC: false,
+                features: ['Whiteboard'],
+                section: 'Section J',
+                schedule: {
+                    Monday:    { 8: null, 9: null, 10: 'MGT101 Business', 11: 'MGT101 Business', 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Tuesday:   { 8: 'MGT101 Business', 9: 'MGT101 Business', 10: null, 11: null, 12: 'LUNCH', 13: 'MGT101 Business', 14: null, 15: null, 16: null },
+                    Wednesday: { 8: null, 9: null, 10: null, 11: 'MGT101 Business', 12: 'LUNCH', 13: null, 14: 'MGT101 Business', 15: 'MGT101 Business', 16: null },
+                    Thursday:  { 8: null, 9: null, 10: null, 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null },
+                    Friday:    { 8: null, 9: 'MGT101 Business', 10: 'MGT101 Business', 11: null, 12: 'LUNCH', 13: null, 14: null, 15: null, 16: null }
+                }
+            }
+        ];
+
+        // --- GLOBAL APP STATE ---
+        let state = {
+            currentDay: 'Monday',
+            currentTime: '11:30', // HH:MM 24hr format
+            selectedFloor: 'ALL',
+            selectedStatus: 'ALL',
+            selectedFeature: 'ALL',
+            minDurationMinutes: 0,
+            aiReasoning: null,
+            activeTab: 'grid', // 'grid', '3d', 'schedule'
+            claimedRooms: {}, // roomId -> true/false
+            selectedRoomIdForModal: null,
+            isSimulating: false,
+            simInterval: null,
+            selected3dFloor: 'ALL'
+        };
+
+
+        // --- TIME CALCULATION HELPERS ---
+        function parseTimeToMinutes(timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            return h * 60 + m;
+        }
+
+        function formatMinutesToTimeString(mins) {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            const period = h >= 12 ? 'PM' : 'AM';
+            const displayH = h % 12 === 0 ? 12 : h % 12;
+            return `${String(displayH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+        }
+
+        function formatDuration(minutes) {
+            if (minutes >= 999) return 'Rest of Day';
+            const h = Math.floor(minutes / 60);
+            const m = minutes % 60;
+            if (h > 0 && m > 0) return `${h}h ${m}m`;
+            if (h > 0) return `${h} hr${h > 1 ? 's' : ''}`;
+            return `${m} min`;
+        }
+
+        /**
+         * Evaluates room availability status at the given day and time.
+         * Returns { isFree, currentSubject, nextClassSubject, minutesRemaining, nextClassTimeStr }
+         */
+        function getRoomStatus(room, day, timeStr) {
+            const currentMins = parseTimeToMinutes(timeStr);
+            const currentHour = Math.floor(currentMins / 60);
+
+            // Schedule hours are 8 AM (8) to 5 PM (17)
+            const daySchedule = room.schedule[day] || {};
+            const currentSubject = daySchedule[currentHour] || null;
+            const isFree = !currentSubject;
+
+            if (!isFree) {
+                // Occupied: calculate how long until class ends (top of next hour)
+                const endOfHourMins = (currentHour + 1) * 60;
+                const minutesRemaining = endOfHourMins - currentMins;
+                return {
+                    isFree: false,
+                    currentSubject,
+                    nextClassSubject: null,
+                    minutesRemaining: Math.max(1, minutesRemaining),
+                    nextClassTimeStr: formatMinutesToTimeString(endOfHourMins)
+                };
+            } else {
+                // Free: find when the next scheduled lecture starts
+                let nextHour = currentHour + 1;
+                while (nextHour < 17 && !daySchedule[nextHour]) {
+                    nextHour++;
+                }
+
+                let minutesRemaining;
+                let nextClassSubject = null;
+                let nextClassTimeStr = '05:00 PM (End of day)';
+
+                if (nextHour < 17 && daySchedule[nextHour]) {
+                    nextClassSubject = daySchedule[nextHour];
+                    const nextClassStartMins = nextHour * 60;
+                    minutesRemaining = nextClassStartMins - currentMins;
+                    nextClassTimeStr = formatMinutesToTimeString(nextClassStartMins);
+                } else {
+                    // Free for the rest of the day until 5:00 PM (1020 mins)
+                    const endOfDayMins = 17 * 60;
+                    minutesRemaining = Math.max(0, endOfDayMins - currentMins);
+                }
+
+                return {
+                    isFree: true,
+                    currentSubject: null,
+                    nextClassSubject,
+                    minutesRemaining: Math.max(0, minutesRemaining),
+                    nextClassTimeStr
+                };
+            }
+        }
+
+        // --- 2. AI NATURAL LANGUAGE PARSER ---
+        function parseAiQuery(query) {
+            if (!query || query.trim() === '') return null;
+
+            const q = query.toLowerCase();
+            const breakdown = [];
+            
+            let floorFilter = 'ALL';
+            let featureFilter = 'ALL';
+            let minDuration = 0;
+            let targetCapacity = 0;
+
+            // Extract Floor Intent
+            if (q.includes('ground') || q.includes('gf')) {
+                floorFilter = 'Ground Floor';
+                breakdown.push('Floor Target: Ground Floor');
+            } else if (q.includes('1st') || q.includes('floor 1') || q.includes('first')) {
+                floorFilter = 'Floor 1';
+                breakdown.push('Floor Target: Floor 1');
+            } else if (q.includes('2nd') || q.includes('floor 2') || q.includes('second')) {
+                floorFilter = 'Floor 2';
+                breakdown.push('Floor Target: Floor 2');
+            } else if (q.includes('3rd') || q.includes('floor 3') || q.includes('third')) {
+                floorFilter = 'Floor 3';
+                breakdown.push('Floor Target: Floor 3');
+            }
+
+            // Extract Features
+            if (q.includes('ac') || q.includes('air con') || q.includes('chilled')) {
+                featureFilter = 'AC';
+                breakdown.push('Feature Required: Air Conditioning (AC)');
+            } else if (q.includes('projector') || q.includes('screen') || q.includes('presentation')) {
+                featureFilter = 'Projector';
+                breakdown.push('Feature Required: Projector');
+            }
+
+            // Extract Duration (Hours or Minutes)
+            const hourMatch = q.match(/(\d+)\s*(hour|hr|hours|hrs)/);
+            if (hourMatch) {
+                const hrs = parseInt(hourMatch[1], 10);
+                minDuration = hrs * 60;
+                breakdown.push(`Minimum Free Duration: ${hrs} Hour(s) (${minDuration} mins)`);
+            } else {
+                const minMatch = q.match(/(\d+)\s*(min|mins|minutes)/);
+                if (minMatch) {
+                    minDuration = parseInt(minMatch[1], 10);
+                    breakdown.push(`Minimum Free Duration: ${minDuration} mins`);
+                }
+            }
+
+            // Extract Capacity / Group Size
+            const peopleMatch = q.match(/(\d+)\s*(people|person|team|squad|group|seats|students)/);
+            if (peopleMatch) {
+                targetCapacity = parseInt(peopleMatch[1], 10);
+                breakdown.push(`Min Capacity Needed: ${targetCapacity} seats`);
+            }
+
+            return {
+                floorFilter,
+                featureFilter,
+                minDuration,
+                targetCapacity,
+                reasoning: breakdown.length > 0 
+                    ? breakdown.join(' | ') 
+                    : 'Parsed generic query. Matching best available free rooms.'
+            };
+        }
+
+
+        // --- 3. UI RENDERING ENGINES ---
+
+        function renderFloorGrid() {
+            const container = document.getElementById('floorsContainer');
+            container.innerHTML = '';
+
+            const aiParsed = state.aiReasoning ? parseAiQuery(document.getElementById('aiQueryInput').value) : null;
+
+            const floors = ['Ground Floor', 'Floor 1', 'Floor 2', 'Floor 3'];
+
+            floors.forEach(floorName => {
+                // Apply Floor Filter
+                if (state.selectedFloor !== 'ALL' && state.selectedFloor !== floorName) {
+                    return;
+                }
+                if (aiParsed && aiParsed.floorFilter !== 'ALL' && aiParsed.floorFilter !== floorName) {
+                    return;
+                }
+
+                // Filter rooms belonging to this floor
+                let roomsOnFloor = ROOM_DATASET.filter(r => r.floor === floorName);
+
+                // Apply Filters
+                roomsOnFloor = roomsOnFloor.filter(room => {
+                    const statusInfo = getRoomStatus(room, state.currentDay, state.currentTime);
+
+                    // Filter Status
+                    if (state.selectedStatus === 'FREE' && !statusInfo.isFree) return false;
+                    if (state.selectedStatus === 'OCCUPIED' && statusInfo.isFree) return false;
+
+                    // Filter Feature
+                    if (state.selectedFeature === 'AC' && !room.hasAC) return false;
+                    if (state.selectedFeature === 'Projector' && !room.features.includes('Projector')) return false;
+                    if (state.selectedFeature === 'Whiteboard' && !room.features.includes('Whiteboard')) return false;
+
+                    // Filter AI Features & Capacity
+                    if (aiParsed) {
+                        if (aiParsed.featureFilter === 'AC' && !room.hasAC) return false;
+                        if (aiParsed.featureFilter === 'Projector' && !room.features.includes('Projector')) return false;
+                        if (aiParsed.minDuration > 0 && statusInfo.isFree && statusInfo.minutesRemaining < aiParsed.minDuration) return false;
+                        if (aiParsed.targetCapacity > 0 && room.capacity < aiParsed.targetCapacity) return false;
+                    }
+
+                    // Filter Duration
+                    if (state.minDurationMinutes > 0 && statusInfo.isFree && statusInfo.minutesRemaining < state.minDurationMinutes) {
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                if (roomsOnFloor.length === 0) return;
+
+                // Create Floor Header Section
+                const floorSection = document.createElement('div');
+                floorSection.className = 'space-y-4';
+
+                floorSection.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="layers" class="w-5 h-5 text-emerald-400"></i>
+                            <h3 class="text-lg font-bold text-gray-100 tracking-wide">${floorName}</h3>
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 border border-gray-700 font-medium">
+                                ${roomsOnFloor.length} Rooms
+                            </span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="floor-grid-${floorName.replace(/\s+/g, '')}"></div>
+                `;
+
+                container.appendChild(floorSection);
+
+                const grid = floorSection.querySelector(`#floor-grid-${floorName.replace(/\s+/g, '')}`);
+
+                roomsOnFloor.forEach(room => {
+                    const status = getRoomStatus(room, state.currentDay, state.currentTime);
+                    const isClaimed = !!state.claimedRooms[room.id];
+
+                    let cardBorder = 'border-gray-800';
+                    let statusBadge = '';
+                    let actionBtn = '';
+
+                    if (!status.isFree) {
+                        // Occupied
+                        cardBorder = 'border-rose-500/30 bg-rose-950/10';
+                        statusBadge = `
+                            <span class="px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-rose-500"></span> OCCUPIED
+                            </span>`;
+                        actionBtn = `
+                            <button onclick="openRoomModal('${room.id}')" class="w-full py-2 px-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5">
+                                <i data-lucide="info" class="w-3.5 h-3.5"></i> View Lecture Details
+                            </button>`;
+                    } else if (status.minutesRemaining <= 15) {
+                        // Ending Soon
+                        cardBorder = 'border-amber-500/40 bg-amber-950/10';
+                        statusBadge = `
+                            <span class="px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                                <span class="w-2 h-2 rounded-full bg-amber-500"></span> CLASS SOON (${status.minutesRemaining}m)
+                            </span>`;
+                        actionBtn = `
+                            <button onclick="openRoomModal('${room.id}')" class="w-full py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5">
+                                <i data-lucide="clock" class="w-3.5 h-3.5"></i> Inspect Room
+                            </button>`;
+                    } else {
+                        // Free
+                        cardBorder = 'border-emerald-500/30 bg-emerald-950/10';
+                        statusBadge = `
+                            <span class="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> FREE NOW
+                            </span>`;
+                        actionBtn = `
+                            <button onclick="openRoomModal('${room.id}')" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5">
+                                <i data-lucide="users" class="w-3.5 h-3.5"></i> Claim / Call Squad
+                            </button>`;
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = `glass-card p-5 rounded-2xl border ${cardBorder} flex flex-col justify-between space-y-4 relative overflow-hidden`;
+
+                    card.innerHTML = `
+                        <!-- Claimed Badge Ribbon -->
+                        ${isClaimed ? `
+                            <div class="absolute top-0 right-0 bg-indigo-600 text-white text-[10px] font-extrabold px-3 py-0.5 rounded-bl-xl shadow flex items-center gap-1">
+                                <i data-lucide="check" class="w-3 h-3"></i> CLAIMED BY SQUAD
+                            </div>
+                        ` : ''}
+
+                        <!-- Card Header -->
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="font-extrabold text-lg text-white">${room.id}</h4>
+                                    <span class="text-xs text-gray-400 font-medium">(${room.section})</span>
+                                </div>
+                                <p class="text-xs text-gray-400">${room.name}</p>
+                            </div>
+                            ${statusBadge}
+                        </div>
+
+                        <!-- Availability Main Info -->
+                        <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800/80 space-y-1">
+                            ${status.isFree ? `
+                                <div class="text-xs text-gray-400">Available undisturbed for:</div>
+                                <div class="text-lg font-black text-emerald-400 flex items-center gap-1.5">
+                                    <i data-lucide="clock" class="w-4 h-4 text-emerald-400"></i>
+                                    <span>${formatDuration(status.minutesRemaining)}</span>
+                                </div>
+                                <div class="text-[11px] text-gray-500">Free until next class at ${status.nextClassTimeStr}</div>
+                            ` : `
+                                <div class="text-xs text-gray-400">Lecture in session:</div>
+                                <div class="text-sm font-bold text-rose-300 truncate">${status.currentSubject}</div>
+                                <div class="text-[11px] text-rose-400/80">Class ends in ~${status.minutesRemaining} mins</div>
+                            `}
+                        </div>
+
+                        <!-- Specifications Features Pills -->
+                        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+                            <span class="px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-700 flex items-center gap-1">
+                                <i data-lucide="users" class="w-3 h-3 text-emerald-400"></i> ${room.capacity} seats
+                            </span>
+                            <span class="px-2 py-0.5 rounded-md ${room.hasAC ? 'bg-cyan-950/40 text-cyan-300 border border-cyan-800/50' : 'bg-gray-800 text-gray-400 border border-gray-700'} flex items-center gap-1">
+                                <i data-lucide="snowflake" class="w-3 h-3"></i> ${room.hasAC ? 'AC' : 'Non-AC'}
+                            </span>
+                            ${room.features.map(f => `
+                                <span class="px-2 py-0.5 rounded-md bg-gray-800 text-gray-300 border border-gray-700">${f}</span>
+                            `).join('')}
+                        </div>
+
+                        <!-- Card Bottom Actions -->
+                        <div class="pt-2">
+                            ${actionBtn}
+                        </div>
+                    `;
+
+                    grid.appendChild(card);
+                });
+            });
+
+            // Re-initialize Lucide Icons for dynamic content
+            if (window.lucide) lucide.createIcons();
+
+            // Update Metric Counts Header
+            updateMetricCounts();
+        }
+
+        function updateMetricCounts() {
+            let freeCount = 0;
+            let occupiedCount = 0;
+            let endingSoonCount = 0;
+
+            ROOM_DATASET.forEach(room => {
+                const status = getRoomStatus(room, state.currentDay, state.currentTime);
+                if (!status.isFree) {
+                    occupiedCount++;
+                } else {
+                    freeCount++;
+                    if (status.minutesRemaining <= 15) {
+                        endingSoonCount++;
+                    }
+                }
+            });
+
+            document.getElementById('metricFreeCount').innerText = `${freeCount} Free Rooms`;
+            document.getElementById('metricOccupiedCount').innerText = `${occupiedCount} Occupied`;
+            document.getElementById('metricEndingSoonCount').innerText = `${endingSoonCount} Ending Soon`;
+        }
+
+
+        // --- 4. SCHEDULE TIMETABLE TABLE RENDERER ---
+        function renderScheduleTable() {
+            const tbody = document.getElementById('scheduleTableBody');
+            tbody.innerHTML = '';
+
+            const sectionFilter = document.getElementById('scheduleSectionFilter').value;
+
+            ROOM_DATASET.forEach(room => {
+                if (sectionFilter !== 'ALL' && room.section !== sectionFilter) return;
+
+                const daySchedule = room.schedule[state.currentDay] || {};
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-800/40 transition-colors';
+
+                let rowHtml = `
+                    <td class="py-3 px-4">
+                        <div class="font-bold text-white">${room.id}</div>
+                        <div class="text-[10px] text-gray-400">${room.section} (${room.floor})</div>
+                    </td>
+                `;
+
+                // 8 AM to 4 PM (Hours 8..16)
+                for (let h = 8; h <= 16; h++) {
+                    const subject = daySchedule[h];
+                    const isLunch = h === 12;
+
+                    if (isLunch) {
+                        rowHtml += `<td class="py-2 px-1 text-center bg-gray-900/80 text-[10px] text-gray-500 font-semibold">LUNCH BREAK</td>`;
+                    } else if (subject) {
+                        rowHtml += `
+                            <td class="py-2 px-1 text-center">
+                                <span class="block p-1 rounded bg-rose-950/40 border border-rose-800/50 text-rose-300 text-[10px] font-medium truncate" title="${subject}">
+                                    ${subject}
+                                </span>
+                            </td>`;
+                    } else {
+                        rowHtml += `
+                            <td class="py-2 px-1 text-center">
+                                <span class="block p-1 rounded bg-emerald-950/30 border border-emerald-800/40 text-emerald-400 text-[10px] font-bold">
+                                    FREE
+                                </span>
+                            </td>`;
+                    }
+                }
+
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
+            });
+        }
+
+
+        // --- 5. ROOM DETAILS MODAL & COUNTDOWN TIMER ---
+        let countdownInterval = null;
+
+        function openRoomModal(roomId) {
+            state.selectedRoomIdForModal = roomId;
+            const room = ROOM_DATASET.find(r => r.id === roomId);
+            if (!room) return;
+
+            const modal = document.getElementById('roomModal');
+            const card = document.getElementById('roomModalCard');
+
+            document.getElementById('modalRoomTitle').innerText = room.id;
+            document.getElementById('modalFloorBadge').innerText = room.floor;
+            document.getElementById('modalSubtitle').innerText = `${room.name} (${room.section})`;
+            document.getElementById('modalCapacity').innerText = `${room.capacity} Seats`;
+            document.getElementById('modalAC').innerText = room.hasAC ? 'AC Room' : 'Non-AC';
+            document.getElementById('modalFeatures').innerText = room.features.join(', ');
+
+            updateModalCountdown();
+
+            // Clear previous interval if any
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(updateModalCountdown, 1000);
+
+            // Update Claim Button UI
+            updateClaimUI();
+
+            // Display Modal
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                card.classList.remove('scale-95');
+                card.classList.add('scale-100');
+            }, 10);
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('roomModal');
+            const card = document.getElementById('roomModalCard');
+
+            modal.classList.add('opacity-0');
+            card.classList.remove('scale-100');
+            card.classList.add('scale-95');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                if (countdownInterval) clearInterval(countdownInterval);
+            }, 300);
+        }
+
+        function updateModalCountdown() {
+            if (!state.selectedRoomIdForModal) return;
+            const room = ROOM_DATASET.find(r => r.id === state.selectedRoomIdForModal);
+            if (!room) return;
+
+            const status = getRoomStatus(room, state.currentDay, state.currentTime);
+
+            const timerElem = document.getElementById('modalCountdownTimer');
+            const labelElem = document.getElementById('modalCountdownLabel');
+            const nextClassElem = document.getElementById('modalNextClassInfo');
+
+            if (status.isFree) {
+                labelElem.innerText = 'FREE UNDISTURBED TIME REMAINING';
+                timerElem.className = 'flex items-center justify-center gap-2 text-3xl font-black font-mono tracking-tight text-emerald-400 my-1';
+                
+                if (status.nextClassSubject) {
+                    nextClassElem.innerHTML = `Next Lecture: <strong class="text-gray-200">${status.nextClassSubject}</strong> starts at <span class="text-emerald-300 font-semibold">${status.nextClassTimeStr}</span>`;
+                } else {
+                    nextClassElem.innerHTML = `No more lectures scheduled today! Free until <span class="text-emerald-300 font-semibold">05:00 PM</span>`;
+                }
+            } else {
+                labelElem.innerText = 'LECTURE IN PROGRESS - ENDS IN';
+                timerElem.className = 'flex items-center justify-center gap-2 text-3xl font-black font-mono tracking-tight text-rose-400 my-1';
+                nextClassElem.innerHTML = `Current Class: <strong class="text-rose-300">${status.currentSubject}</strong> until <span class="text-rose-200 font-semibold">${status.nextClassTimeStr}</span>`;
+            }
+
+            // Live Seconds Ticking Simulation
+            const totalSecs = status.minutesRemaining * 60;
+            const h = Math.floor(totalSecs / 3600);
+            const m = Math.floor((totalSecs % 3600) / 60);
+            const s = Math.floor(totalSecs % 60);
+
+            timerElem.innerHTML = `
+                <i data-lucide="timer" class="w-7 h-7 text-emerald-400 animate-pulse"></i>
+                <span>${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s</span>
+            `;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function updateClaimUI() {
+            const isClaimed = !!state.claimedRooms[state.selectedRoomIdForModal];
+            const claimText = document.getElementById('claimText');
+            const claimDot = document.getElementById('claimDot');
+            const toggleBtn = document.getElementById('toggleClaimBtn');
+
+            if (isClaimed) {
+                claimText.innerText = 'Status: Claimed by your Squad';
+                claimDot.className = 'w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping';
+                toggleBtn.innerText = 'Unclaim Room';
+                toggleBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all shadow';
+            } else {
+                claimText.innerText = 'Status: Unclaimed / Open Space';
+                claimDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
+                toggleBtn.innerText = 'Claim for Squad';
+                toggleBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow';
+            }
+        }
+
+        // --- PHASE 2: "CALL THE SQUAD" WHATSAPP INTEGRATION ---
+        function generateWhatsAppInviteText(room) {
+            const status = getRoomStatus(room, state.currentDay, state.currentTime);
+            const freeDurationStr = formatDuration(status.minutesRemaining);
+
+            return `📍 Heading to ${room.id} (${room.floor}). It's free until ${status.nextClassTimeStr} (${freeDurationStr} remaining). Come fast!`;
+        }
+
+        function sendWhatsAppInvite() {
+            if (!state.selectedRoomIdForModal) return;
+            const room = ROOM_DATASET.find(r => r.id === state.selectedRoomIdForModal);
+            if (!room) return;
+
+            const text = generateWhatsAppInviteText(room);
+            const encodedText = encodeURIComponent(text);
+            const whatsappUrl = `https://wa.me/?text=${encodedText}`;
+
+            window.open(whatsappUrl, '_blank');
+        }
+
+        function copyInviteText() {
+            if (!state.selectedRoomIdForModal) return;
+            const room = ROOM_DATASET.find(r => r.id === state.selectedRoomIdForModal);
+            if (!room) return;
+
+            const text = generateWhatsAppInviteText(room);
+
+            // Execute copy
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            showToast('WhatsApp Invite message copied to clipboard!');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').innerText = message;
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 3000);
+        }
+
+
+        // --- 6. THREE.JS 3D ISOMETRIC BUILDING VISUALIZER ---
+        let threeScene, threeCamera, threeRenderer, threeControls;
+        let roomMeshesMap = {};
+        let raycaster, mouse;
+
+        function init3DVisualizer() {
+            const container = document.getElementById('threeJsCanvasContainer');
+            if (!container || threeRenderer) return;
+
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // Scene
+            threeScene = new THREE.Scene();
+            threeScene.background = new THREE.Color(0x0b0f17);
+
+            // Camera (Perspective Isometric Style)
+            threeCamera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
+            threeCamera.position.set(40, 50, 60);
+
+            // Renderer
+            threeRenderer = new THREE.WebGLRenderer({ antialias: true });
+            threeRenderer.setSize(width, height);
+            threeRenderer.setPixelRatio(window.devicePixelRatio);
+            threeRenderer.shadowMap.enabled = true;
+            container.appendChild(threeRenderer.domElement);
+
+            // Controls
+            threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+            threeControls.enableDamping = true;
+            threeControls.dampingFactor = 0.05;
+            threeControls.maxPolarAngle = Math.PI / 2.1; // Limit below ground
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            threeScene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(30, 50, 20);
+            dirLight.castShadow = true;
+            threeScene.add(dirLight);
+
+            // Raycaster for Room Clicks
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Build 3D Building Floors
+            build3DBuilding();
+
+            // Click Listener on 3D Canvas
+            threeRenderer.domElement.addEventListener('click', on3dCanvasClick);
+
+            // Animation Loop
+            function animate3D() {
+                requestAnimationFrame(animate3D);
+                threeControls.update();
+                threeRenderer.render(threeScene, threeCamera);
+            }
+            animate3D();
+
+            // Resize Handler
+            window.addEventListener('resize', () => {
+                if (!container || !threeRenderer) return;
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                threeCamera.aspect = w / h;
+                threeCamera.updateProjectionMatrix();
+                threeRenderer.setSize(w, h);
+            });
+        }
+
+        function build3DBuilding() {
+            // Clear existing
+            roomMeshesMap = {};
+
+            const floorHeight = 10;
+            const floorWidth = 36;
+            const floorDepth = 24;
+
+            // Building Base Floor Plates
+            const floorsList = [
+                { index: 0, name: 'Ground Floor' },
+                { index: 1, name: 'Floor 1' },
+                { index: 2, name: 'Floor 2' },
+                { index: 3, name: 'Floor 3' }
+            ];
+
+            floorsList.forEach(fl => {
+                const yPos = fl.index * floorHeight;
+
+                // Base Slab
+                const slabGeo = new THREE.BoxGeometry(floorWidth, 0.8, floorDepth);
+                const slabMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.8 });
+                const slabMesh = new THREE.Mesh(slabGeo, slabMat);
+                slabMesh.position.set(0, yPos, 0);
+                slabMesh.userData = { isSlab: true, floorIndex: fl.index };
+                threeScene.add(slabMesh);
+
+                // Add Floor Glass Railings
+                const wireframe = new THREE.WireframeGeometry(slabGeo);
+                const line = new THREE.LineSegments(wireframe);
+                line.material.color.setHex(0x1f2937);
+                slabMesh.add(line);
+            });
+
+            // Populate Room Blocks in 3D Grid Layout
+            ROOM_DATASET.forEach(room => {
+                const status = getRoomStatus(room, state.currentDay, state.currentTime);
+                const isClaimed = !!state.claimedRooms[room.id];
+
+                let roomColor = 0x22c55e; // Green = Free
+                if (!status.isFree) {
+                    roomColor = 0xe11d48; // Red = Occupied
+                } else if (status.minutesRemaining <= 15) {
+                    roomColor = 0xf59e0b; // Amber = Soon
+                }
+                if (isClaimed) {
+                    roomColor = 0x6366f1; // Indigo = Squad Claimed
+                }
+
+                const yPos = room.floorIndex * floorHeight + 2.5;
+
+                // Position Rooms offset in grid per floor
+                let xPos = 0;
+                let zPos = 0;
+
+                if (room.id.includes('101') || room.id.includes('201') || room.id.includes('301')) {
+                    xPos = -10; zPos = -6;
+                } else if (room.id.includes('102') || room.id.includes('202') || room.id.includes('302') || room.id.includes('509')) {
+                    xPos = 0; zPos = -6;
+                } else if (room.id.includes('303') || room.id.includes('401')) {
+                    xPos = 10; zPos = -6;
+                } else if (room.id.includes('402')) {
+                    xPos = -5; zPos = 6;
+                } else {
+                    xPos = 5; zPos = 6;
+                }
+
+                const boxGeo = new THREE.BoxGeometry(8, 4, 8);
+                const boxMat = new THREE.MeshStandardMaterial({
+                    color: roomColor,
+                    roughness: 0.3,
+                    metalness: 0.1,
+                    transparent: true,
+                    opacity: 0.85
+                });
+
+                const roomMesh = new THREE.Mesh(boxGeo, boxMat);
+                roomMesh.position.set(xPos, yPos, zPos);
+                roomMesh.userData = { roomId: room.id, floorIndex: room.floorIndex };
+
+                // Add wireframe glow border
+                const wireframe = new THREE.WireframeGeometry(boxGeo);
+                const line = new THREE.LineSegments(wireframe);
+                line.material.color.setHex(0xffffff);
+                line.material.opacity = 0.2;
+                line.material.transparent = true;
+                roomMesh.add(line);
+
+                threeScene.add(roomMesh);
+                roomMeshesMap[room.id] = roomMesh;
+            });
+        }
+
+        function update3DRoomColors() {
+            if (!threeScene) return;
+
+            ROOM_DATASET.forEach(room => {
+                const roomMesh = roomMeshesMap[room.id];
+                if (!roomMesh) return;
+
+                const status = getRoomStatus(room, state.currentDay, state.currentTime);
+                const isClaimed = !!state.claimedRooms[room.id];
+
+                let roomColor = 0x22c55e;
+                if (!status.isFree) {
+                    roomColor = 0xe11d48;
+                } else if (status.minutesRemaining <= 15) {
+                    roomColor = 0xf59e0b;
+                }
+                if (isClaimed) {
+                    roomColor = 0x6366f1;
+                }
+
+                roomMesh.material.color.setHex(roomColor);
+
+                // Visibility Filter by Selected Floor
+                if (state.selected3dFloor === 'ALL') {
+                    roomMesh.visible = true;
+                } else {
+                    roomMesh.visible = (room.floorIndex === parseInt(state.selected3dFloor, 10));
+                }
+            });
+        }
+
+        function on3dCanvasClick(event) {
+            const container = document.getElementById('threeJsCanvasContainer');
+            const rect = container.getBoundingClientRect();
+
+            mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, threeCamera);
+            const intersects = raycaster.intersectObjects(threeScene.children, true);
+
+            for (let i = 0; i < intersects.length; i++) {
+                const obj = intersects[i].object;
+                if (obj.userData && obj.userData.roomId) {
+                    openRoomModal(obj.userData.roomId);
+                    break;
+                }
+            }
+        }
+
+
+        // --- 7. EVENT LISTENERS & CONTROLLERS ---
+        function setupEventListeners() {
+            // Day & Time Controls
+            document.getElementById('daySelect').addEventListener('change', (e) => {
+                state.currentDay = e.target.value;
+                refreshAllViews();
+            });
+
+            document.getElementById('timePicker').addEventListener('change', (e) => {
+                state.currentTime = e.target.value;
+                refreshAllViews();
+            });
+
+            document.getElementById('resetLiveTimeBtn').addEventListener('click', () => {
+                const now = new Date();
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                let dayName = days[now.getDay()];
+                if (dayName === 'Saturday' || dayName === 'Sunday') dayName = 'Monday';
+
+                const h = String(now.getHours()).padStart(2, '0');
+                const m = String(now.getMinutes()).padStart(2, '0');
+
+                document.getElementById('daySelect').value = dayName;
+                document.getElementById('timePicker').value = `${h}:${m}`;
+
+                state.currentDay = dayName;
+                state.currentTime = `${h}:${m}`;
+                refreshAllViews();
+                showToast('Reset to current live time!');
+            });
+
+            // Live Simulation Toggle
+            document.getElementById('liveSimToggleBtn').addEventListener('click', () => {
+                state.isSimulating = !state.isSimulating;
+                const simBtn = document.getElementById('liveSimToggleBtn');
+                const simText = document.getElementById('simStatusText');
+
+                if (state.isSimulating) {
+                    simBtn.className = 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-600 text-white transition-all shadow animate-pulse';
+                    simText.innerText = 'Stop Sim';
+                    
+                    state.simInterval = setInterval(() => {
+                        let [h, m] = state.currentTime.split(':').map(Number);
+                        m += 5; // Fast forward 5 mins per tick
+                        if (m >= 60) {
+                            h++;
+                            m = 0;
+                        }
+                        if (h >= 17) h = 8;
+
+                        const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                        document.getElementById('timePicker').value = timeStr;
+                        state.currentTime = timeStr;
+                        refreshAllViews();
+                    }, 2000);
+                } else {
+                    simBtn.className = 'flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 text-white transition-all shadow';
+                    simText.innerText = 'Live Sim';
+                    if (state.simInterval) clearInterval(state.simInterval);
+                }
+            });
+
+            // AI Natural Language Search
+            document.getElementById('aiSearchBtn').addEventListener('click', executeAiSearch);
+            document.getElementById('aiQueryInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') executeAiSearch();
+            });
+
+            // Quick Prompt Chips
+            document.querySelectorAll('.prompt-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const query = chip.getAttribute('data-query');
+                    document.getElementById('aiQueryInput').value = query;
+                    executeAiSearch();
+                });
+            });
+
+            // Traditional Filters
+            document.getElementById('filterFloor').addEventListener('change', (e) => {
+                state.selectedFloor = e.target.value;
+                renderFloorGrid();
+            });
+            document.getElementById('filterStatus').addEventListener('change', (e) => {
+                state.selectedStatus = e.target.value;
+                renderFloorGrid();
+            });
+            document.getElementById('filterFeature').addEventListener('change', (e) => {
+                state.selectedFeature = e.target.value;
+                renderFloorGrid();
+            });
+            document.getElementById('filterDuration').addEventListener('change', (e) => {
+                state.minDurationMinutes = parseInt(e.target.value, 10);
+                renderFloorGrid();
+            });
+            document.getElementById('clearFiltersBtn').addEventListener('click', () => {
+                document.getElementById('filterFloor').value = 'ALL';
+                document.getElementById('filterStatus').value = 'ALL';
+                document.getElementById('filterFeature').value = 'ALL';
+                document.getElementById('filterDuration').value = '0';
+                document.getElementById('aiQueryInput').value = '';
+                document.getElementById('aiReasoningBox').classList.add('hidden');
+
+                state.selectedFloor = 'ALL';
+                state.selectedStatus = 'ALL';
+                state.selectedFeature = 'ALL';
+                state.minDurationMinutes = 0;
+                state.aiReasoning = null;
+
+                renderFloorGrid();
+            });
+
+            // Navigation Tabs Switcher
+            const tabGridBtn = document.getElementById('tabGridBtn');
+            const tab3dBtn = document.getElementById('tab3dBtn');
+            const tabScheduleBtn = document.getElementById('tabScheduleBtn');
+
+            const viewFloorGrid = document.getElementById('viewFloorGrid');
+            const view3dMap = document.getElementById('view3dMap');
+            const viewSchedule = document.getElementById('viewSchedule');
+            const traditionalFilters = document.getElementById('traditionalFilters');
+
+            tabGridBtn.addEventListener('click', () => {
+                setActiveTab('grid');
+            });
+            tab3dBtn.addEventListener('click', () => {
+                setActiveTab('3d');
+            });
+            tabScheduleBtn.addEventListener('click', () => {
+                setActiveTab('schedule');
+            });
+
+            function setActiveTab(tab) {
+                state.activeTab = tab;
+
+                tabGridBtn.className = tab === 'grid' ? 'flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold bg-emerald-600 text-white shadow transition-all' : 'flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold text-gray-400 hover:text-white transition-all';
+                tab3dBtn.className = tab === '3d' ? 'flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold bg-emerald-600 text-white shadow transition-all' : 'flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold text-gray-400 hover:text-white transition-all';
+                tabScheduleBtn.className = tab === 'schedule' ? 'flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold bg-emerald-600 text-white shadow transition-all' : 'flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-semibold text-gray-400 hover:text-white transition-all';
+
+                viewFloorGrid.classList.toggle('hidden', tab !== 'grid');
+                view3dMap.classList.toggle('hidden', tab !== '3d');
+                viewSchedule.classList.toggle('hidden', tab !== 'schedule');
+                traditionalFilters.classList.toggle('hidden', tab !== 'grid');
+
+                if (tab === '3d') {
+                    init3DVisualizer();
+                    update3DRoomColors();
+                } else if (tab === 'schedule') {
+                    renderScheduleTable();
+                }
+            }
+
+            // 3D Floor Switcher Buttons
+            document.querySelectorAll('.floor-3d-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.floor-3d-btn').forEach(b => {
+                        b.className = 'floor-3d-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition-all';
+                    });
+                    btn.className = 'floor-3d-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white transition-all';
+
+                    state.selected3dFloor = btn.getAttribute('data-floor');
+                    update3DRoomColors();
+                });
+            });
+
+            // Schedule Table Section Filter
+            document.getElementById('scheduleSectionFilter').addEventListener('change', renderScheduleTable);
+
+            // Modal Controls
+            document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+            document.getElementById('roomModal').addEventListener('click', (e) => {
+                if (e.target.id === 'roomModal') closeModal();
+            });
+
+            document.getElementById('toggleClaimBtn').addEventListener('click', () => {
+                if (!state.selectedRoomIdForModal) return;
+                const current = !!state.claimedRooms[state.selectedRoomIdForModal];
+                state.claimedRooms[state.selectedRoomIdForModal] = !current;
+                updateClaimUI();
+                refreshAllViews();
+                showToast(current ? 'Room unclaimed.' : 'Room claimed for your Study Squad!');
+            });
+
+            document.getElementById('whatsappShareBtn').addEventListener('click', sendWhatsAppInvite);
+            document.getElementById('copyInviteLinkBtn').addEventListener('click', copyInviteText);
+        }
+
+        function executeAiSearch() {
+            const query = document.getElementById('aiQueryInput').value;
+            const parsed = parseAiQuery(query);
+
+            if (parsed) {
+                state.aiReasoning = parsed.reasoning;
+                document.getElementById('aiReasoningText').innerText = parsed.reasoning;
+                document.getElementById('aiReasoningBox').classList.remove('hidden');
+            } else {
+                state.aiReasoning = null;
+                document.getElementById('aiReasoningBox').classList.add('hidden');
+            }
+
+            renderFloorGrid();
+        }
+
+        function refreshAllViews() {
+            renderFloorGrid();
+            if (state.activeTab === '3d') update3DRoomColors();
+            if (state.activeTab === 'schedule') renderScheduleTable();
+            if (state.selectedRoomIdForModal) updateModalCountdown();
+        }
+
+        // --- 8. INITIALIZATION ON PAGE LOAD ---
+        window.onload = function () {
+            // Initialize Lucide Icons
+            if (window.lucide) lucide.createIcons();
+
+            // Set current initial day & time
+            const now = new Date();
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            let dayName = days[now.getDay()];
+            if (dayName === 'Saturday' || dayName === 'Sunday') dayName = 'Monday';
+
+            document.getElementById('daySelect').value = dayName;
+            state.currentDay = dayName;
+
+            // Setup Listeners & Initial Render
+            setupEventListeners();
+            renderFloorGrid();
+        };
+    </script>
+</body>
+</html>
