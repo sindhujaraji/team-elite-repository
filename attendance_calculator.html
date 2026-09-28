@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance Calculator</title>
+<style>
+:root{
+  --bg:#090b10; --panel:#11151d; --panel2:#151a23; --line:#29313d;
+  --text:#f7f8fb; --muted:#9ca6b5; --accent:#7c5cff; --accent2:#2dd4ff;
+  --good:#d9f99d; --warn:#fde68a; --bad:#fca5a5; --white:#fff;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;
+background:radial-gradient(circle at 15% 0%,#1a1730 0,#090b10 38%),var(--bg);color:var(--text)}
+button,input,select{font:inherit}
+.container{max-width:1180px;margin:auto;padding:32px 18px 60px}
+.hero{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:26px}
+.eyebrow{color:#a99bff;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+h1{font-size:clamp(36px,6vw,64px);line-height:1;margin:8px 0 12px;letter-spacing:-.05em}
+.subtitle{color:var(--muted);max-width:680px;font-size:16px}
+.badge{border:1px solid var(--line);background:#ffffff08;padding:9px 13px;border-radius:999px;color:#d6d9e0;font-size:12px;white-space:nowrap}
+.card{background:linear-gradient(145deg,#ffffff08,#ffffff03);border:1px solid var(--line);border-radius:22px;padding:22px;margin:16px 0;box-shadow:0 18px 60px #0004;backdrop-filter:blur(16px)}
+.step{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.num{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#080a0e;font-weight:800}
+h2{font-size:18px;margin:0} .hint{font-size:12px;color:var(--muted);margin-top:3px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+label{display:block;color:#c7ccd5;font-size:12px;font-weight:700;margin-bottom:7px}
+input,select{width:100%;padding:13px 14px;border:1px solid var(--line);background:#0d1118;color:var(--text);border-radius:12px;outline:none}
+input:focus,select:focus{border-color:#8170ff;box-shadow:0 0 0 3px #7c5cff18}
+.subject-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.subject{padding:18px;border:1px solid var(--line);border-radius:18px;background:#0c1017}
+.subject-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+.subject-name{font-weight:800}.pill{font-size:11px;padding:5px 8px;border-radius:999px;background:#ffffff09;color:#b9c1cc}
+.btn{border:0;border-radius:13px;padding:14px 18px;font-weight:800;cursor:pointer;transition:.18s transform,.18s opacity,.18s box-shadow}
+.btn:hover{transform:translateY(-1px)} .btn-primary{width:100%;background:linear-gradient(90deg,var(--accent),#5b8cff);color:#fff;box-shadow:0 12px 30px #6f5cff33}
+.btn-secondary{background:#fff;color:#080a0e}
+.actions{display:grid;grid-template-columns:1fr 150px;gap:10px}
+.dashboard{display:none}.dashboard.show{display:block}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat{padding:18px;border:1px solid var(--line);border-radius:18px;background:#ffffff05}
+.stat .label{color:var(--muted);font-size:12px}.stat .value{font-size:28px;font-weight:900;margin-top:6px}
+.progress{height:9px;background:#242b36;border-radius:999px;overflow:hidden;margin-top:9px}
+.progress>div{height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.result{border:1px solid var(--line);border-radius:18px;padding:18px;background:#0d1118}
+.result-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.percent{font-size:25px;font-weight:900}.status{font-size:11px;padding:5px 8px;border-radius:999px;border:1px solid var(--line)}
+.safe{background:#16351d;color:var(--good)}.warning{background:#3b3112;color:var(--warn)}.critical{background:#3b1515;color:var(--bad)}
+.irreversible{border-color:#ff5f5f;background:#230f12}
+.warning-box{display:none;border:1px solid #ff5f5f;background:linear-gradient(135deg,#2a0d12,#120b0d);border-radius:20px;padding:20px;margin:16px 0}
+.warning-box.show{display:block}.warning-box strong{font-size:20px}
+.small{font-size:12px;color:var(--muted);line-height:1.5}
+.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:760px}.table th,.table td{text-align:left;padding:12px;border-bottom:1px solid var(--line);font-size:13px}.table th{color:#9ca6b5}
+footer{text-align:center;color:#6f7886;font-size:12px;margin-top:30px}
+@media(max-width:760px){
+ .container{padding:22px 12px 45px}.hero{display:block}.badge{display:inline-block;margin-top:10px}
+ .grid,.subject-grid,.result-grid,.stats{grid-template-columns:1fr 1fr}
+ .actions{grid-template-columns:1fr}.stats .value{font-size:23px}
+}
+@media(max-width:520px){.grid,.subject-grid,.result-grid,.stats{grid-template-columns:1fr}h1{font-size:42px}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="hero">
+    <div>
+      <div class="eyebrow">College Attendance Planner</div>
+      <h1>Attendance<br>Calculator</h1>
+      <div class="subtitle">Know exactly how many classes you need to attend — using your section timetable and a target date.</div>
+    </div>
+    <div class="badge">MIDNIGHT GLASS • 90% PLANNER</div>
+  </header>
+
+  <section class="card">
+    <div class="step"><div class="num">1</div><div><h2>Select your class section</h2><div class="hint">The selected timetable controls future class counts.</div></div></div>
+    <div class="grid">
+      <div>
+        <label>CLASS SECTION</label>
+        <select id="section"></select>
+      </div>
+      <div>
+        <label>SEMESTER END DATE</label>
+        <input id="semesterEnd" type="date">
+      </div>
+    </div>
+    <div class="small" id="timetableInfo" style="margin-top:12px"></div>
+  </section>
+
+  <section class="card">
+    <div class="step"><div class="num">2</div><div><h2>Enter attendance for each subject</h2><div class="hint">Enter classes attended and total classes conducted so far.</div></div></div>
+    <div class="subject-grid" id="subjects"></div>
+  </section>
+
+  <section class="card">
+    <div class="step"><div class="num">3</div><div><h2>Choose a future date</h2><div class="hint">Forecast attendance by this date.</div></div></div>
+    <div class="grid">
+      <div><label>TARGET DATE</label><input id="targetDate" type="date"></div>
+      <div><label>OPTIONAL PLANNED ABSENCES</label><input id="plannedAbsences" type="number" min="0" value="0"></div>
+    </div>
+  </section>
+
+  <div class="actions">
+    <button class="btn btn-primary" id="calculate">⌕ &nbsp; Calculate Attendance</button>
+    <button class="btn btn-secondary" id="reset">Reset</button>
+  </div>
+
+  <section class="dashboard" id="dashboard">
+    <div class="warning-box" id="warning">
+      <strong>⚠ IRREVERSIBLE DETENTION</strong>
+      <p class="small" style="color:#f7c5c5">Attendance cannot mathematically recover to 90% before November/semester end, even if every remaining scheduled class is attended.</p>
+    </div>
+
+    <div class="card">
+      <div class="step"><div class="num">✓</div><div><h2>Attendance overview</h2><div class="hint" id="overviewText"></div></div></div>
+      <div class="stats">
+        <div class="stat"><div class="label">CURRENT OVERALL</div><div class="value" id="overall">—</div></div>
+        <div class="stat"><div class="label">REMAINING CLASSES</div><div class="value" id="remaining">—</div></div>
+        <div class="stat"><div class="label">SUBJECTS IN DANGER</div><div class="value" id="dangerCount">—</div></div>
+        <div class="stat"><div class="label">SAFE SUBJECTS</div><div class="value" id="safeCount">—</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="step"><div class="num">↗</div><div><h2>Subject results</h2><div class="hint">Minimum attendance required to reach 90% is rounded up to a whole class.</div></div></div>
+      <div class="result-grid" id="results"></div>
+    </div>
+
+    <div class="card">
+      <div class="step"><div class="num">▦</div><div><h2>Detailed calculation</h2><div class="hint">Transparent values for every subject.</div></div></div>
+      <div class="table-wrap"><table class="table"><thead><tr>
+        <th>Subject</th><th>Current</th><th>Remaining</th><th>Need to reach 90%</th><th>Can miss</th><th>Projected by target</th><th>Status</th>
+      </tr></thead><tbody id="tableBody"></tbody></table></div>
+    </div>
+  </section>
+  <footer>Attendance Calculator • Replace the demo timetable with the hackathon's actual dataset before final submission.</footer>
+</div>
+
+<script>
+/*
+  IMPORTANT:
+  This file is fully functional, but the timetable below is DEMO DATA.
+  Replace SECTION_TIMETABLES with the official hackathon timetable dataset.
+*/
+
+const SUBJECTS = ["Mathematics","Web Technologies","DBMS","Computer Networks","Software Engineering","Cyber Security"];
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat"];
+
+// Demo: each section has a weekly subject sequence. Replace with official data.
+const SECTION_TIMETABLES = {};
+for(let i=0;i<10;i++){
+  const key = `IT-${String.fromCharCode(65+i)}`;
+  SECTION_TIMETABLES[key] = {
+    "Mon":["Mathematics","Web Technologies","DBMS","Computer Networks","Software Engineering","Cyber Security"],
+    "Tue":["Web Technologies","Mathematics","Computer Networks","DBMS","Cyber Security","Software Engineering"],
+    "Wed":["DBMS","Software Engineering","Mathematics","Cyber Security","Web Technologies","Computer Networks"],
+    "Thu":["Computer Networks","Cyber Security","Web Technologies","Mathematics","DBMS","Software Engineering"],
+    "Fri":["Software Engineering","DBMS","Cyber Security","Web Technologies","Mathematics","Computer Networks"],
+    "Sat":["Cyber Security","Computer Networks","Software Engineering","DBMS","Web Technologies","Mathematics"]
+  };
+}
+
+const $ = id => document.getElementById(id);
+const today = new Date();
+today.setHours(0,0,0,0);
+const iso = d => {
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+};
+$("targetDate").value = iso(new Date(today.getTime()+14*86400000));
+const defaultEnd = new Date(today.getFullYear(),10,30);
+$("semesterEnd").value = iso(defaultEnd);
+
+Object.keys(SECTION_TIMETABLES).forEach((s,i)=>{
+  const o=document.createElement("option"); o.value=s; o.textContent=`${s} — Semester 5`; $("section").appendChild(o);
+});
+
+function buildSubjects(){
+  $("subjects").innerHTML="";
+  SUBJECTS.forEach((name,i)=>{
+    $("subjects").insertAdjacentHTML("beforeend",`
+      <div class="subject">
+        <div class="subject-top"><div class="subject-name">${name}</div><div class="pill">SUBJECT ${i+1}</div></div>
+        <div class="grid">
+          <div><label>CLASSES ATTENDED</label><input class="attended" data-subject="${name}" type="number" min="0" step="1" value="0"></div>
+          <div><label>TOTAL CONDUCTED</label><input class="conducted" data-subject="${name}" type="number" min="0" step="1" value="0"></div>
+        </div>
+      </div>`);
+  });
+}
+buildSubjects();
+
+function scheduleCount(section,start,end,subject=null){
+  if(end < start) return 0;
+  const timetable=SECTION_TIMETABLES[section];
+  let count=0;
+  for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+    const day=DAYS[d.getDay()-1];
+    if(!day) continue;
+    const classes=timetable[day]||[];
+    count += subject ? classes.filter(x=>x===subject).length : classes.length;
+  }
+  return count;
+}
+
+function minTo90(attended,conducted){
+  // (a+x)/(c+x) >= .9 => x >= 9c-10a
+  return Math.max(0, Math.ceil(9*conducted - 10*attended));
+}
+
+function canReach(attended,conducted,remaining){
+  return (attended+remaining)/(conducted+remaining) >= .9 - 1e-12;
+}
+
+function calculate(){
+  const section=$("section").value;
+  const target=new Date($("targetDate").value+"T00:00:00");
+  const semesterEnd=new Date($("semesterEnd").value+"T00:00:00");
+  if(isNaN(target)||isNaN(semesterEnd)){alert("Please select valid dates.");return;}
+  if(target < today){alert("Target date must be today or later.");return;}
+  if(semesterEnd < today){alert("Semester end must be today or later.");return;}
+
+  const effectiveTarget = target > semesterEnd ? semesterEnd : target;
+  const planned=Math.max(0,Number($("plannedAbsences").value)||0);
+
+  const data=SUBJECTS.map(name=>{
+    const a=Number(document.querySelector(`.attended[data-subject="${name}"]`).value)||0;
+    const c=Number(document.querySelector(`.conducted[data-subject="${name}"]`).value)||0;
+    if(a>c){throw new Error(`${name}: attended classes cannot exceed total conducted.`);}
+    const current=c?100*a/c:0;
+    const remTarget=scheduleCount(section,new Date(today.getTime()+86400000),effectiveTarget,name);
+    const remSemester=scheduleCount(section,new Date(today.getTime()+86400000),semesterEnd,name);
+    const need=minTo90(a,c);
+    const canMiss=Math.max(0, Math.floor((a-0.9*c)/0.9));
+    const targetMiss=Math.min(planned,remTarget);
+    const futureAttended=Math.max(0,remTarget-targetMiss);
+    const projected=(c+remTarget)>0?100*(a+futureAttended)/(c+remTarget):current;
+    const recoverable=canReach(a,c,remSemester);
+    return {name,a,c,current,remTarget,remSemester,need,canMiss,projected,recoverable};
+  });
+
+  const totalA=data.reduce((s,x)=>s+x.a,0), totalC=data.reduce((s,x)=>s+x.c,0);
+  const overall=totalC?100*totalA/totalC:0;
+  const totalRemaining=scheduleCount(section,new Date(today.getTime()+86400000),semesterEnd);
+  const danger=data.filter(x=>x.current<90).length;
+  const safe=data.filter(x=>x.current>=90).length;
+  const irreversible=data.some(x=>x.current<90 && !x.recoverable);
+
+  $("overall").textContent=overall.toFixed(1)+"%";
+  $("remaining").textContent=totalRemaining;
+  $("dangerCount").textContent=danger;
+  $("safeCount").textContent=safe;
+  $("overviewText").textContent=`${section} • Forecast target: ${effectiveTarget.toLocaleDateString()} • Semester end: ${semesterEnd.toLocaleDateString()}`;
+  $("warning").classList.toggle("show",irreversible);
+
+  $("results").innerHTML=data.map(x=>{
+    const status=x.current>=90?"SAFE":(x.recoverable?"WARNING":"CRITICAL");
+    const cls=status==="SAFE"?"safe":status==="WARNING"?"warning":"critical";
+    return `<div class="result ${status==="CRITICAL"&&!x.recoverable?"irreversible":""}">
+      <div class="result-head"><div><div class="subject-name">${x.name}</div><div class="small">${x.a}/${x.c} conducted</div></div><div class="percent">${x.current.toFixed(1)}%</div></div>
+      <div class="progress"><div style="width:${Math.min(100,Math.max(0,x.current))}%"></div></div>
+      <p class="small"><b>${x.need}</b> more consecutive classes needed to reach 90% (if scheduled classes permit). <br>
+      ${x.remTarget} classes scheduled before target • projected: <b>${x.projected.toFixed(1)}%</b></p>
+      <span class="status ${cls}">${status}</span>
+    </div>`;
+  }).join("");
+
+  $("tableBody").innerHTML=data.map(x=>{
+    const status=x.current>=90?"SAFE":(x.recoverable?"WARNING":"CRITICAL");
+    return `<tr><td><b>${x.name}</b></td><td>${x.current.toFixed(1)}%</td><td>${x.remSemester}</td><td>${x.need}</td><td>${x.canMiss}</td><td>${x.projected.toFixed(1)}%</td><td>${status}</td></tr>`;
+  }).join("");
+
+  $("dashboard").classList.add("show");
+  $("dashboard").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function refreshInfo(){
+  const s=$("section").value;
+  $("timetableInfo").textContent=`Loaded timetable for ${s} — 6 subjects, 6 periods/day (Mon–Sat) • Demo timetable currently active`;
+}
+$("section").addEventListener("change",refreshInfo);
+refreshInfo();
+
+$("calculate").addEventListener("click",()=>{
+  try{calculate();}catch(e){alert(e.message);}
+});
+$("reset").addEventListener("click",()=>{
+  document.querySelectorAll(".attended,.conducted").forEach(x=>x.value=0);
+  $("plannedAbsences").value=0;
+  $("dashboard").classList.remove("show");
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+</script>
+</body>
+</html>
